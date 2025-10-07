@@ -36,6 +36,17 @@ export interface AnthropicMessage {
   content: string | AnthropicContentBlock[];
 }
 
+export type AnthropicSystemItem =
+  | string
+  | {
+      type?: string;
+      text?: string;
+      content?: unknown;
+      [key: string]: unknown;
+    };
+
+export type AnthropicSystemValue = AnthropicSystemItem | AnthropicSystemItem[];
+
 export interface AnthropicMetadata {
   user_id?: string;
   [key: string]: unknown;
@@ -55,7 +66,7 @@ export interface AnthropicToolChoice {
 export interface MessagesPayload {
   model?: string;
   messages: AnthropicMessage[];
-  system?: string | string[];
+  system?: AnthropicSystemValue;
   metadata?: AnthropicMetadata;
   stream?: boolean;
   temperature?: number;
@@ -139,4 +150,3 @@ export interface ClaudeRequestBuilder {
 export interface CodexResponseAdapter {
   toAnthropic: (response: ClaudeModelResponse) => AnthropicMessageResponse;
 }
-

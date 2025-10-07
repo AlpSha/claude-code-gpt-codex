@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { buildClaudeRequest, codexResponseToAnthropic, pipeCodexStreamToAnthropic } from "../../proxy/anthropic-adapter";
 import { toAnthropicError } from "../errors";
 import type { MessagesPayload, ServerDeps } from "../types";
+import { logProxyRequest } from "../../utils/request-log";
 
 type AuthPreHandler = (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
 
@@ -24,6 +25,17 @@ export function registerMessagesRoute(server: FastifyInstance, deps: MessagesRou
         return;
       }
       try {
+        await logProxyRequest(deps.config, {
+          type: "messages",
+          body: request.body,
+          headers: request.headers as Record<string, unknown>,
+          query: request.query as Record<string, unknown>,
+        }).catch((error) => {
+          deps.logger.warn("Failed to log incoming request", {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+
         const body = validateBody(request.body);
         const bridgeOverride = parseBridgeOverride(request.query?.bridge);
         const stream = determineStreamPreference(body, request.headers);

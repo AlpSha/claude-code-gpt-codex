@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { buildClaudeRequestFromPrompt, codexResponseToAnthropic, pipeCodexStreamToAnthropic } from "../../proxy/anthropic-adapter";
 import { toAnthropicError } from "../errors";
 import type { AnthropicMessageResponse, CompletePayload, MessagesPayload, ServerDeps } from "../types";
+import { logProxyRequest } from "../../utils/request-log";
 
 interface CompleteQuery {
   bridge?: string;
@@ -24,6 +25,17 @@ export function registerCompleteRoute(server: FastifyInstance, deps: CompleteRou
         return;
       }
       try {
+        await logProxyRequest(deps.config, {
+          type: "complete",
+          body: request.body,
+          headers: request.headers as Record<string, unknown>,
+          query: request.query as Record<string, unknown>,
+        }).catch((error) => {
+          deps.logger.warn("Failed to log incoming request", {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+
         const body = validateComplete(request.body);
         const bridgeOverride = parseBridgeOverride(request.query?.bridge);
         const stream = determineStreamPreference(body, request.headers);

@@ -94,6 +94,32 @@ describe("buildClaudeRequest", () => {
     const tools = body.tools as Array<Record<string, unknown>>;
     expect(tools[0]).toMatchObject({ type: "function" });
   });
+
+  it("flattens structured system blocks into instructions", () => {
+    const payload: MessagesPayload = {
+      model: "gpt-5-codex",
+      system: [
+        { type: "text", text: "You are Claude Code." },
+        { type: "text", text: "\nFollow project instructions exactly.\n" },
+        { type: "text", text: "" },
+      ],
+      messages: [
+        {
+          role: "user",
+          content: "ping",
+        },
+      ],
+    };
+
+    const request = buildClaudeRequest(payload, {
+      config: CONFIG,
+      headers: {},
+      stream: true,
+    });
+
+    const body = request.body as Record<string, unknown>;
+    expect(body.instructions).toBe("You are Claude Code.\n\nFollow project instructions exactly.");
+  });
 });
 
 describe("buildClaudeRequestFromPrompt", () => {

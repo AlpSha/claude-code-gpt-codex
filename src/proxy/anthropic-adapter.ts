@@ -5,6 +5,7 @@ import {
   type AnthropicMessage,
   type AnthropicMessageResponse,
   type AnthropicToolDefinition,
+  type AnthropicSystemValue,
   type BuildClaudeRequestOptions,
   type CompletePayload,
   type MessagesPayload,
@@ -13,6 +14,48 @@ import {
 } from "../server/types";
 
 const CLAUDE_ENDPOINT = "/responses";
+
+function extractSystemInstructions(system: AnthropicSystemValue | undefined): string | undefined {
+  if (system === undefined || system === null) {
+    return undefined;
+  }
+
+  const segments: string[] = [];
+
+  const append = (value: unknown) => {
+    if (typeof value === "string") {
+      const normalised = value.trim();
+      if (normalised.length > 0) {
+        segments.push(normalised);
+      }
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach(append);
+      return;
+    }
+
+    if (value && typeof value === "object") {
+      const record = value as { text?: unknown; content?: unknown };
+      if (typeof record.text === "string") {
+        append(record.text);
+        return;
+      }
+      if (typeof record.content === "string" || Array.isArray(record.content)) {
+        append(record.content);
+      }
+    }
+  };
+
+  append(system);
+
+  if (segments.length === 0) {
+    return undefined;
+  }
+
+  return segments.join("\n\n");
+}
 
 export function buildClaudeRequest(payload: MessagesPayload, options: BuildClaudeRequestOptions): ClaudeModelRequest {
   const model = normalizeModel(payload.model, options.config);
@@ -373,8 +416,9 @@ function buildRequestBody(payload: MessagesPayload, model: string, _stream: bool
     stream: true,
   };
 
-  if (payload.system) {
-    body.instructions = Array.isArray(payload.system) ? payload.system.join("\n") : payload.system;
+  const instructions = extractSystemInstructions(payload.system);
+  if (instructions) {
+    body.instructions = instructions;
   }
   if (payload.temperature !== undefined) {
     body.temperature = payload.temperature;

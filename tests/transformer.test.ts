@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 import { transformRequest, shouldInjectPrompt } from "../src/request/transformer";
 import { loadConfig } from "../src/config";
 
-async function getConfig() {
+async function getConfig(overrides: Partial<NodeJS.ProcessEnv> = {}) {
   return loadConfig({
     CLAUDE_CODE_CODEX_DEBUG: "0",
+    ...overrides,
   } as NodeJS.ProcessEnv);
 }
 
@@ -25,8 +26,20 @@ describe("transformRequest", () => {
     expect(Array.isArray(result.body.input)).toBe(true);
   });
 
-  it("injects bridge prompt when tools are present", async () => {
+  it("preserves instructions in the transformed payload", async () => {
     const config = await getConfig();
+    const body = {
+      instructions: "You are Claude Code.",
+      messages: [{ role: "user", content: "hello" }],
+    } as Record<string, unknown>;
+
+    const result = transformRequest(config, body);
+
+    expect(result.body.instructions).toBe("You are Claude Code.");
+  });
+
+  it("injects bridge prompt when tools are present in auto mode", async () => {
+    const config = await getConfig({ CODEX_MODE: "auto" });
     const body = {
       tools: [{ name: "bash" }],
       messages: [{ role: "user", content: "hi" }],
@@ -39,8 +52,21 @@ describe("transformRequest", () => {
     expect(first.content[0]?.text).toContain("Codex Running in Claude Code");
   });
 
-  it("skips prompt injection when disabled", async () => {
-    const config = await loadConfig({ CODEX_MODE: "disabled" } as NodeJS.ProcessEnv);
+  it("does not inject bridge prompt by default", async () => {
+    const config = await getConfig();
+    const body = {
+      tools: [{ name: "bash" }],
+      messages: [{ role: "user", content: "hi" }],
+    } as Record<string, unknown>;
+
+    const result = transformRequest(config, body);
+
+    const first = (result.body.input as Array<{ role: string }>)[0];
+    expect(first.role).toBe("user");
+  });
+
+  it("skips prompt injection when disabled explicitly", async () => {
+    const config = await getConfig({ CODEX_MODE: "disabled" });
     const body = {
       tools: [{ name: "read" }],
     } as Record<string, unknown>;
@@ -53,13 +79,19 @@ describe("transformRequest", () => {
 
 describe("shouldInjectPrompt", () => {
   it("returns true when tools present in auto mode", async () => {
-    const config = await getConfig();
+    const config = await getConfig({ CODEX_MODE: "auto" });
     const body = { tools: [{ name: "bash" }] } as Record<string, unknown>;
     expect(shouldInjectPrompt(config, body)).toBe(true);
   });
 
+  it("returns false by default when tools present", async () => {
+    const config = await getConfig();
+    const body = { tools: [{ name: "bash" }] } as Record<string, unknown>;
+    expect(shouldInjectPrompt(config, body)).toBe(false);
+  });
+
   it("returns false when disabled", async () => {
-    const config = await loadConfig({ CODEX_MODE: "0" } as NodeJS.ProcessEnv);
+    const config = await getConfig({ CODEX_MODE: "0" });
     const body = { tools: [{ name: "bash" }] } as Record<string, unknown>;
     expect(shouldInjectPrompt(config, body)).toBe(false);
   });
