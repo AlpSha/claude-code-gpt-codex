@@ -3,12 +3,16 @@
   "version": "0.1.0",
   "description": "Claude Code extension that bridges to OpenAI Codex (gpt-5-codex)",
   "type": "module",
+  "packageManager": "bun@1.2.23",
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
     "dist"
   ],
+  "engines": {
+    "bun": ">=1.2.23"
+  },
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "test": "vitest run",
@@ -18,8 +22,8 @@
     "@openauthjs/openauth": "^0.4.3"
   },
   "devDependencies": {
-    "@types/node": "^20.11.0",
-    "typescript": "^5.3.0",
-    "vitest": "^1.1.0"
+    "@types/node": "^24.7.0",
+    "typescript": "^5.9.3",
+    "vitest": "^1.6.1"
   }
 }

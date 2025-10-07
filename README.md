@@ -13,17 +13,17 @@ This repository contains a Claude Code extension that authenticates against Open
 
 ### Prerequisites
 - Node.js 20 or later
-- npm 9+
+- Bun 1.0+
 
 ### Installation
 ```bash
-npm install
+bun install
 ```
 
 ### Building the Extension
 Compile TypeScript sources into `dist/`:
 ```bash
-npm run build
+bun run build
 ```
 
 ### Registering with Claude Code
@@ -68,10 +68,10 @@ docs/            # Copied implementation + prompt specs
 
 ## Development Workflow
 ```bash
-npm install        # install dependencies
-npm run typecheck  # verify TypeScript types
-npm test           # run Vitest suite
-npm run build      # emit dist/ bundle
+bun install        # install dependencies
+bun run typecheck  # verify TypeScript types
+bun run test       # run Vitest suite
+bun run build      # emit dist/ bundle
 ```
 
 ### Debug Logging

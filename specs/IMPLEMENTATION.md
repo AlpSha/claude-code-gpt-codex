@@ -51,7 +51,7 @@ claude-extension/
 
 ### 1. Bootstrap the Repository
 
-- Initialise a Node 20+ TypeScript project (`npm init`, `tsconfig.json` targeting ES2022 + module=ES2022).
+- Initialise a Node 20+ TypeScript project (`bun init`, `tsconfig.json` targeting ES2022 + module=ES2022).
 - Install dependencies:
   - Runtime: `@openauthjs/openauth`
   - Dev: Claude Code extension SDK (`@anthropic-ai/claude-code-sdk` or equivalent), `typescript`, `vitest`.
@@ -150,7 +150,7 @@ Ensure directories are created lazily with `fs.mkdir({ recursive: true })`.
 
 ### 11. Build & Distribution
 
-- `npm run build` → compile TypeScript to `dist/` via `tsc` and copy static assets (e.g., `auth-success.html`).
+- `bun run build` → compile TypeScript to `dist/` via `tsc` and copy static assets (e.g., `auth-success.html`).
 - Publish as `claude-code-gpt5-codex-auth` (or private bundle) with appropriate metadata.
 - Document minimal installation in the repo README: place the compiled extension in Claude Code's plugin directory, then run the OAuth flow once.
 
@@ -177,9 +177,9 @@ CLAUDE_CODE_CODEX_DEBUG=1
 
 ## Developer Workflow Checklist
 
-1. **Install dependencies**: `npm install`.
-2. **Run tests**: `npm test`.
-3. **Build**: `npm run build` (ensures OAuth success HTML copied to `dist/`).
+1. **Install dependencies**: `bun install`.
+2. **Run tests**: `bun run test`.
+3. **Build**: `bun run build` (ensures OAuth success HTML copied to `dist/`).
 4. **Link into Claude Code**: symlink or copy the `dist/` bundle as required by Claude Code.
 5. **Authenticate**: trigger the OAuth method from within Claude Code; browser opens at `https://auth.openai.com/oauth/authorize`. Complete login.
 6. **Verify**: open Claude Code terminal, issue a test command; confirm responses originate from `gpt-5-codex`.
