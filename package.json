@@ -14,7 +14,7 @@
     "bun": ">=1.2.23"
   },
   "scripts": {
-    "build": "tsc --project tsconfig.json",
+    "build": "tsc --project tsconfig.json && node scripts/fix-esm-extensions.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit --project tsconfig.json",
     "start": "node dist/index.js",
