@@ -20,6 +20,9 @@ export function registerCompleteRoute(server: FastifyInstance, deps: CompleteRou
       preHandler: deps.authPreHandler,
     },
     async (request, reply) => {
+      if (reply.sent || reply.raw.headersSent) {
+        return;
+      }
       try {
         const body = validateComplete(request.body);
         const bridgeOverride = parseBridgeOverride(request.query?.bridge);
@@ -41,7 +44,7 @@ export function registerCompleteRoute(server: FastifyInstance, deps: CompleteRou
         const anthropicResponse = codexResponseToAnthropic(response, deps.config);
         reply.status(response.status).send(convertToCompletion(anthropicResponse, original));
       } catch (error) {
-        if (!reply.sent) {
+        if (!reply.sent && !reply.raw.headersSent) {
           const mapped = toAnthropicError(error);
           reply.status(mapped.status).send(mapped.payload);
         }

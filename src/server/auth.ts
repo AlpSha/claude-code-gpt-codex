@@ -46,4 +46,3 @@ function mask(token: string): string {
   }
   return `${token.slice(0, 2)}***${token.slice(-2)}`;
 }
-

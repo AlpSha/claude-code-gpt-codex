@@ -20,6 +20,9 @@ export function registerMessagesRoute(server: FastifyInstance, deps: MessagesRou
       preHandler: deps.authPreHandler,
     },
     async (request, reply) => {
+      if (reply.sent || reply.raw.headersSent) {
+        return;
+      }
       try {
         const body = validateBody(request.body);
         const bridgeOverride = parseBridgeOverride(request.query?.bridge);
@@ -44,7 +47,7 @@ export function registerMessagesRoute(server: FastifyInstance, deps: MessagesRou
         const anthropicResponse = codexResponseToAnthropic(response, deps.config);
         reply.status(response.status).send(anthropicResponse);
       } catch (error) {
-        if (!reply.sent) {
+        if (!reply.sent && !reply.raw.headersSent) {
           const mapped = toAnthropicError(error);
           reply.status(mapped.status).send(mapped.payload);
         }

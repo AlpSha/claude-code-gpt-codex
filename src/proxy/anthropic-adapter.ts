@@ -332,11 +332,30 @@ function normalizeModel(model: string | undefined, config: ProxyConfig): string 
   return config.allowedModels[0] ?? "gpt-5-codex";
 }
 
+const DISALLOWED_FORWARD_HEADERS = new Set([
+  "accept-encoding",
+  "authorization",
+  "connection",
+  "content-length",
+  "content-type",
+  "host",
+  "keep-alive",
+  "proxy-connection",
+  "te",
+  "transfer-encoding",
+  "trailer",
+  "upgrade",
+]);
+
 function buildForwardHeaders(payload: MessagesPayload, options: BuildClaudeRequestOptions): Record<string, string> {
   const headers: Record<string, string> = {};
   const { headers: incoming } = options;
   for (const [key, value] of Object.entries(incoming)) {
     if (typeof value === "string") {
+      const normalized = key.toLowerCase();
+      if (DISALLOWED_FORWARD_HEADERS.has(normalized)) {
+        continue;
+      }
       headers[key] = value;
     }
   }

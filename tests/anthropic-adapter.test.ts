@@ -61,7 +61,13 @@ describe("buildClaudeRequest", () => {
 
     const request = buildClaudeRequest(payload, {
       config: CONFIG,
-      headers: { "anthropic-version": "2023-01-01" },
+      headers: {
+        "anthropic-version": "2023-01-01",
+        authorization: "Bearer anthropic-key",
+        host: "127.0.0.1:4000",
+        "content-length": "123",
+        "accept-encoding": "gzip",
+      },
       stream: false,
       bridgePromptOverride: true,
     });
@@ -73,6 +79,10 @@ describe("buildClaudeRequest", () => {
     expect(body.max_output_tokens).toBe(256);
     expect(Array.isArray(body.messages)).toBe(true);
     expect(request.headers?.["anthropic-version"]).toBe("2023-01-01");
+    expect(request.headers?.authorization).toBeUndefined();
+    expect(request.headers?.host).toBeUndefined();
+    expect(request.headers?.["content-length"]).toBeUndefined();
+    expect(request.headers?.["accept-encoding"]).toBeUndefined();
     expect(request.headers?.user_id).toBe("user-123");
     expect(request.bridgePromptOverride).toBe(true);
 

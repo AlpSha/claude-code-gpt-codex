@@ -12,9 +12,14 @@ export function createAnthropicError(type: string, message: string, status: numb
   };
 }
 
-export function sendAnthropicError(reply: FastifyReply, type: string, message: string, status: number): void {
+export function sendAnthropicError(
+  reply: FastifyReply,
+  type: string,
+  message: string,
+  status: number,
+): FastifyReply {
   const payload = createAnthropicError(type, message, status);
-  reply.status(status).send(payload);
+  return reply.status(status).send(payload);
 }
 
 export function toAnthropicError(error: unknown, fallbackStatus = 500): {
@@ -73,4 +78,3 @@ function resolveMessage(error: unknown, status: number): string {
   }
   return "Unexpected error";
 }
-
