@@ -120,6 +120,30 @@ describe("buildClaudeRequest", () => {
     const body = request.body as Record<string, unknown>;
     expect(body.instructions).toBe("You are Claude Code.\n\nFollow project instructions exactly.\n");
   });
+
+  it("uses default instructions when no system prompt is provided", () => {
+    const payload: MessagesPayload = {
+      model: "gpt-5-codex",
+      messages: [
+        {
+          role: "user",
+          content: "hello",
+        },
+      ],
+    };
+
+    const request = buildClaudeRequest(payload, {
+      config: CONFIG,
+      headers: {},
+      stream: true,
+    });
+
+    const body = request.body as Record<string, unknown>;
+    // Should have instructions field with default content
+    expect(body.instructions).toBeDefined();
+    expect(typeof body.instructions).toBe("string");
+    expect((body.instructions as string).length).toBeGreaterThan(0);
+  });
 });
 
 describe("buildClaudeRequestFromPrompt", () => {

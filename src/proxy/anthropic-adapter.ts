@@ -1,3 +1,5 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { parseSseStream } from "../request/response";
 import type { ClaudeModelRequest, ClaudeModelResponse } from "../types";
 import {
@@ -14,6 +16,24 @@ import {
 } from "../server/types";
 
 const CLAUDE_ENDPOINT = "/responses";
+
+let cachedDefaultInstructions: string | undefined;
+
+function loadDefaultInstructions(): string {
+  if (cachedDefaultInstructions !== undefined) {
+    return cachedDefaultInstructions;
+  }
+
+  try {
+    const defaultInstructionsPath = path.join(__dirname, "../../prompts/default-instructions.md");
+    cachedDefaultInstructions = fs.readFileSync(defaultInstructionsPath, "utf-8").trim();
+    return cachedDefaultInstructions;
+  } catch (error) {
+    // Fallback if file cannot be read
+    cachedDefaultInstructions = "You are a helpful AI assistant.";
+    return cachedDefaultInstructions;
+  }
+}
 
 function extractSystemInstructions(system: AnthropicSystemValue | undefined): string | undefined {
   if (system === undefined || system === null) {
@@ -415,10 +435,9 @@ function buildRequestBody(payload: MessagesPayload, model: string, _stream: bool
     stream: true,
   };
 
-  const instructions = extractSystemInstructions(payload.system);
-  if (instructions) {
-    body.instructions = instructions;
-  }
+  // Always set instructions - use extracted system instructions or fallback to default
+  const instructions = extractSystemInstructions(payload.system) ?? loadDefaultInstructions();
+  body.instructions = instructions;
   if (payload.temperature !== undefined) {
     body.temperature = payload.temperature;
   }
