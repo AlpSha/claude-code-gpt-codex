@@ -1,4 +1,5 @@
 import { Readable } from "stream";
+import type { ReadableStream as NodeReadableStream } from "stream/web";
 
 export interface SseChunk {
   event?: string;
@@ -23,6 +24,9 @@ export async function parseSseStream(buffer: string): Promise<SseChunk[]> {
     const chunk: SseChunk = {};
     for (const line of lines) {
       const [rawKey, ...rest] = line.split(":");
+      if (!rawKey) {
+        continue;
+      }
       const key = rawKey.trim();
       const value = rest.join(":").trim();
       if (key === "event") {
@@ -58,7 +62,7 @@ export function toAsyncIterable(response: FetchResponse): AsyncIterable<string> 
   if (Symbol.asyncIterator in body) {
     return body as unknown as AsyncIterable<string>;
   }
-  const readable = Readable.fromWeb(body as unknown as ReadableStream<Uint8Array>);
+  const readable = Readable.fromWeb(body as unknown as NodeReadableStream<Uint8Array>);
   return readable.setEncoding("utf8");
 }
 

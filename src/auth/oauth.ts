@@ -125,7 +125,11 @@ export function extractAccountId(accessToken: string): string | undefined {
     return undefined;
   }
   try {
-    const payloadJson = Buffer.from(parts[1], "base64url").toString("utf8");
+    const payloadPart = parts[1];
+    if (!payloadPart) {
+      return undefined;
+    }
+    const payloadJson = Buffer.from(payloadPart, "base64url").toString("utf8");
     const payload = JSON.parse(payloadJson) as { sub?: string; user_id?: string };
     return payload.sub || payload.user_id;
   } catch (error) {
