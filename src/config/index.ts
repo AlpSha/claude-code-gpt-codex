@@ -29,7 +29,7 @@ const DEFAULT_BASE_URL = "https://chatgpt.com/backend-api";
 const DEFAULT_CACHE_DIR = path.join(os.homedir(), ".claude", "cache");
 const DEFAULT_AUTH_PATH = path.join(os.homedir(), ".claude", "auth", "codex.json");
 const DEFAULT_BRIDGE_CACHE = path.join(DEFAULT_CACHE_DIR, "claude-tooling-bridge.txt");
-const DEFAULT_PROMPT_STRATEGY: CodexConfig["promptInjectionStrategy"] = "auto";
+const DEFAULT_PROMPT_STRATEGY: CodexConfig["promptInjectionStrategy"] = "disabled";
 
 const DEFAULT_ALLOWED_MODELS = ["gpt-5-codex", "gpt-5"];
 const DEFAULT_PROXY_PORT = 4000;

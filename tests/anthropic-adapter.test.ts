@@ -78,7 +78,7 @@ describe("buildClaudeRequest", () => {
     expect(body.instructions).toBe("be concise");
     expect(body.max_output_tokens).toBe(256);
     expect(Array.isArray(body.messages)).toBe(true);
-    expect(body.stream).toBe(false);
+    expect(body.stream).toBe(true);
     expect(request.headers?.["anthropic-version"]).toBe("2023-01-01");
     expect(request.headers?.authorization).toBeUndefined();
     expect(request.headers?.host).toBeUndefined();

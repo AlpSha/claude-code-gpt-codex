@@ -365,12 +365,12 @@ function buildForwardHeaders(payload: MessagesPayload, options: BuildClaudeReque
   return headers;
 }
 
-function buildRequestBody(payload: MessagesPayload, model: string, stream: boolean): Record<string, unknown> {
+function buildRequestBody(payload: MessagesPayload, model: string, _stream: boolean): Record<string, unknown> {
   const rawMessages = Array.isArray(payload.messages) ? payload.messages : [];
   const body: Record<string, unknown> = {
     model,
     messages: rawMessages.map(convertMessage),
-    stream,
+    stream: true,
   };
 
   if (payload.system) {

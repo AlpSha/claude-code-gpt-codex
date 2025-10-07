@@ -144,9 +144,7 @@ export function transformRequest(
   delete body.messages;
 
   body.store = false;
-  if (body.stream === undefined) {
-    body.stream = false;
-  }
+  body.stream = true;
   if (body.max_output_tokens === undefined) {
     body.max_output_tokens = null;
   }
