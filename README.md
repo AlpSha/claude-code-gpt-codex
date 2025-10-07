@@ -1,5 +1,28 @@
 # Claude Code GPT-5 Codex Proxy
 
+## ⚠️ IMPORTANT WARNING - PROJECT DOES NOT WORK ⚠️
+
+**This project is currently non-functional due to a limitation in OpenAI Codex.**
+
+### The Problem
+When using custom instructions files that differ from the built-in prompt in codex-core, OpenAI Codex returns a `400 "Instructions are not valid"` error. This affects all custom proxy implementations that attempt to modify or extend the default Codex behavior.
+
+### Official Response
+According to OpenAI (see [GitHub Issue #3376](https://github.com/openai/codex/issues/3376)), **this is expected behavior** - custom prompts can only be used with API key authentication, not with the OAuth-based authentication that this proxy relies on.
+
+### Current Status
+- ❌ **Non-functional** - Cannot use custom instructions with OAuth authentication
+- ❌ **No workaround** - This is a fundamental limitation of the Codex platform
+- ❌ **Not a bug** - Confirmed as expected behavior by OpenAI
+
+### Alternatives
+If you need custom instructions with Codex, you must:
+1. Use direct API key authentication instead of OAuth
+2. Use the built-in prompts without modifications
+3. Consider alternative solutions that support custom prompts
+
+---
+
 This repository delivers an Anthropic-compatible proxy that fronts the existing OpenAI Codex (ChatGPT) pipeline. Claude Code can direct its Anthropic traffic to the proxy by setting `ANTHROPIC_BASE_URL`, authenticate requests with `ANTHROPIC_AUTH_TOKEN`, and continue to use Anthropic request/response schemas while Codex runs behind the scenes.
 
 ## Features
