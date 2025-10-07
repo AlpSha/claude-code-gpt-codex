@@ -117,6 +117,10 @@ export class CodexFetchPipeline {
       maskedAuth,
     });
 
+    if (this.config.debug) {
+      this.logger.debug("Codex request payload", transformed);
+    }
+
     const response = await fetch(targetUrl, {
       method: request.method ?? "POST",
       headers,
@@ -138,6 +142,13 @@ export class CodexFetchPipeline {
     }
 
     const payload = await responseToJson(response);
+
+    if (response.status >= 400) {
+      this.logger.error("Codex request failed", {
+        status: response.status,
+        body: payload,
+      });
+    }
 
     return {
       status: response.status,
