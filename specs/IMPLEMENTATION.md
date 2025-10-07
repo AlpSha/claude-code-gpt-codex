@@ -27,7 +27,7 @@ claude-extension/
 │   ├── prompts/
 │   │   └── claude-bridge.ts     # Claude Code bridge prompt for tool awareness
 │   ├── config/
-│   │   └── index.ts             # Merges env vars + optional `~/.claude-code` config
+│   │   └── index.ts             # Merges env vars + optional `~/.claude` config
 │   └── types.ts                 # Shared TypeScript interfaces
 ├── docs/
 │   ├── IMPLEMENTATION.md        # (this file)
@@ -63,7 +63,7 @@ Create `src/config/index.ts` with:
 - Default values tuned for Codex CLI parity: `reasoningEffort="medium"`, `reasoningSummary="auto"`, `textVerbosity="medium"`, `include=["reasoning.encrypted_content"]`.
 - Environment variables (all optional, with sane defaults):
   - `CLAUDE_CODE_CODEX_BASE_URL` (default `https://chatgpt.com/backend-api`).
-  - `CLAUDE_CODE_CODEX_CACHE_DIR` (default `~/.claude-code/cache`).
+  - `CLAUDE_CODE_CODEX_CACHE_DIR` (default `~/.claude/cache`).
   - `CLAUDE_CODE_CODEX_CONFIG` optional path for JSON overrides.
   - `CLAUDE_CODE_CODEX_DEBUG` toggles verbose logging.
 - A loader that merges env vars ⟶ config file ⟶ defaults.
@@ -75,7 +75,7 @@ Repurpose the Codex CLI OAuth flow:
 - `oauth.ts`: PKCE generation (`@openauthjs/openauth/pkce`), `CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"`, authorise URL `https://auth.openai.com/oauth/authorize`, token URL `https://auth.openai.com/oauth/token`, scope `openid profile email offline_access`.
 - `server.ts`: Local HTTP server on port `1455` that captures `GET /auth/callback?code=...&state=...` and resolves a promise with the code. Ensure clean shutdown.
 - `browser.ts`: Attempt to open the authorisation URL using platform-specific commands (`open`, `start`, `xdg-open`).
-- Token persistence: read/write JSON at `~/.claude-code/auth/codex.json` (configurable) containing `{ access, refresh, expires }`.
+- Token persistence: read/write JSON at `~/.claude/auth/codex.json` (configurable) containing `{ access, refresh, expires }`.
 
 ### 4. Claude Code Entry Point (`src/index.ts`)
 
@@ -127,8 +127,8 @@ Key responsibilities:
 
 ### 8. Token & Cache Storage
 
-- Tokens: `~/.claude-code/auth/codex.json`
-- Cache: `~/.claude-code/cache/`
+- Tokens: `~/.claude/auth/codex.json`
+- Cache: `~/.claude/cache/`
   - `claude-tooling-bridge.txt` (optional cached prompt)
 
 Ensure directories are created lazily with `fs.mkdir({ recursive: true })`.
@@ -160,8 +160,8 @@ Ensure directories are created lazily with `fs.mkdir({ recursive: true })`.
 |----------|---------|---------|
 | `CLAUDE_CODE_CODEX_BASE_URL` | Override ChatGPT backend base URL | `https://chatgpt.com/backend-api` |
 | `CLAUDE_CODE_CODEX_ACCOUNT_ID` | Optional manual override for account ID (useful for testing) | extracted from JWT |
-| `CLAUDE_CODE_CODEX_CACHE_DIR` | Cache directory | `~/.claude-code/cache` |
-| `CLAUDE_CODE_CODEX_AUTH_PATH` | Token storage path | `~/.claude-code/auth/codex.json` |
+| `CLAUDE_CODE_CODEX_CACHE_DIR` | Cache directory | `~/.claude/cache` |
+| `CLAUDE_CODE_CODEX_AUTH_PATH` | Token storage path | `~/.claude/auth/codex.json` |
 | `CLAUDE_CODE_CODEX_CONFIG` | Path to JSON config overrides | *(none)* |
 | `CLAUDE_CODE_CODEX_DEBUG` | Enable verbose logging (1/0) | 0 |
 | `CODEX_MODE` | Force bridge prompt behaviour (1 enable, 0 disable) | 0 |
@@ -170,8 +170,8 @@ Ensure directories are created lazily with `fs.mkdir({ recursive: true })`.
 
 ```
 CLAUDE_CODE_CODEX_BASE_URL=https://chatgpt.com/backend-api
-CLAUDE_CODE_CODEX_AUTH_PATH=/Users/alice/.claude-code/auth/codex.json
-CLAUDE_CODE_CODEX_CACHE_DIR=/Users/alice/.claude-code/cache
+CLAUDE_CODE_CODEX_AUTH_PATH=/Users/alice/.claude/auth/codex.json
+CLAUDE_CODE_CODEX_CACHE_DIR=/Users/alice/.claude/cache
 CLAUDE_CODE_CODEX_DEBUG=1
 ```
 

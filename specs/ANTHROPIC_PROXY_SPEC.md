@@ -9,7 +9,7 @@
 - Preserve the 7-step Codex pipeline (auth/token refresh, request transform, header injection, SSE handling, logging, tests).
 - Expose an HTTP server that accepts Anthropic-compatible requests and forwards them through the pipeline.
 - Allow Claude Code to target the proxy via `ANTHROPIC_BASE_URL`, verify a shared secret in `ANTHROPIC_AUTH_TOKEN`, and surface model aliases via `ANTHROPIC_MODEL`.
-- Keep token persistence in `~/.claude-code/auth/codex.json` and reuse existing config/env overrides where possible.
+- Keep token persistence in `~/.claude/auth/codex.json` and reuse existing config/env overrides where possible.
 - Document setup so a Claude Code user can point at the proxy and run a smoke test.
 - Optional: keep bridge prompt injection (default disabled) with an env toggle.
 
@@ -140,4 +140,3 @@ Expose a lightweight `ProxyConfig` type in `src/server/types.ts` that augments `
 4. Start a Claude Code session and prompt “Say hello”.
 5. Confirm proxy logs show transformed request, Codex response, and Claude displays Codex output.
 6. Exercise a tool invocation to ensure bridge prompt + tool routing still works.
-

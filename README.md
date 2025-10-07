@@ -5,7 +5,7 @@ This repository delivers an Anthropic-compatible proxy that fronts the existing 
 ## Features
 - Fastify server exposing `/v1/messages` and `/v1/complete`, guarded by a shared bearer token.
 - Anthropic ↔ Codex adapters that normalise models (`gpt-5` → `gpt-5-codex`), flatten message payloads, forward metadata, and translate SSE streams.
-- OAuth PKCE flow with cached refresh tokens stored under `~/.claude-code/auth/codex.json` (configurable).
+- OAuth PKCE flow with cached refresh tokens stored under `~/.claude/auth/codex.json` (configurable).
 - Bridge prompt injection retained from the Codex pipeline with an env toggle.
 - Comprehensive Vitest suites covering configuration, adapters, auth, transformer logic, and server routes.
 
@@ -45,8 +45,8 @@ Send a simple prompt ("Say hello") to validate the round trip. Enable `CLAUDE_CO
 | `ANTHROPIC_AUTH_TOKEN` | Shared secret expected in the `Authorization` header | *(required)* |
 | `ANTHROPIC_ALLOWED_MODELS` | Comma-separated list of surfaced models | `gpt-5-codex,gpt-5` |
 | `CLAUDE_CODE_CODEX_BASE_URL` | Downstream Codex base URL | `https://chatgpt.com/backend-api` |
-| `CLAUDE_CODE_CODEX_CACHE_DIR` | Cache directory (bridge prompt, etc.) | `~/.claude-code/cache` |
-| `CLAUDE_CODE_CODEX_AUTH_PATH` | OAuth token JSON path | `~/.claude-code/auth/codex.json` |
+| `CLAUDE_CODE_CODEX_CACHE_DIR` | Cache directory (bridge prompt, etc.) | `~/.claude/cache` |
+| `CLAUDE_CODE_CODEX_AUTH_PATH` | OAuth token JSON path | `~/.claude/auth/codex.json` |
 | `CLAUDE_CODE_CODEX_CONFIG` | Path to JSON overrides | *(unset)* |
 | `CLAUDE_CODE_CODEX_DEBUG` | Enable verbose logging (`1`/`0`) | `0` |
 | `CODEX_MODE` | Bridge prompt behaviour (`auto`, `force`, `disabled`, `1`, `0`) | `auto` |

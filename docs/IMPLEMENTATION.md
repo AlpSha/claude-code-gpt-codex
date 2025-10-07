@@ -44,8 +44,8 @@ Configuration is loaded through `loadConfig`, merging defaults, optional JSON ov
 | `ANTHROPIC_ALLOWED_MODELS` | Comma-separated list of models exposed to Claude Code | `gpt-5-codex,gpt-5` |
 | `CODEX_MODE` | Bridge prompt behaviour (`auto`, `force`, `disabled`, `1`, `0`) | `auto` |
 | `CLAUDE_CODE_CODEX_BASE_URL` | Downstream Codex base URL | `https://chatgpt.com/backend-api` |
-| `CLAUDE_CODE_CODEX_CACHE_DIR` | Cache directory (`claude-tooling-bridge.txt`, etc.) | `~/.claude-code/cache` |
-| `CLAUDE_CODE_CODEX_AUTH_PATH` | Token store location | `~/.claude-code/auth/codex.json` |
+| `CLAUDE_CODE_CODEX_CACHE_DIR` | Cache directory (`claude-tooling-bridge.txt`, etc.) | `~/.claude/cache` |
+| `CLAUDE_CODE_CODEX_AUTH_PATH` | Token store location | `~/.claude/auth/codex.json` |
 | `CLAUDE_CODE_CODEX_DEBUG` | Verbose logging toggle (`1`/`0`) | `0` |
 | `CLAUDE_CODE_CODEX_CONFIG` | Path to JSON overrides | *(unset)* |
 
