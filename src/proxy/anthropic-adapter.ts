@@ -17,7 +17,7 @@ const CLAUDE_ENDPOINT = "/responses";
 export function buildClaudeRequest(payload: MessagesPayload, options: BuildClaudeRequestOptions): ClaudeModelRequest {
   const model = normalizeModel(payload.model, options.config);
   const headers = buildForwardHeaders(payload, options);
-  const body = buildRequestBody(payload, model);
+  const body = buildRequestBody(payload, model, options.stream ?? false);
 
   return {
     url: `${options.config.baseUrl.replace(/\/$/, "")}${CLAUDE_ENDPOINT}`,
@@ -365,10 +365,12 @@ function buildForwardHeaders(payload: MessagesPayload, options: BuildClaudeReque
   return headers;
 }
 
-function buildRequestBody(payload: MessagesPayload, model: string): Record<string, unknown> {
+function buildRequestBody(payload: MessagesPayload, model: string, stream: boolean): Record<string, unknown> {
+  const rawMessages = Array.isArray(payload.messages) ? payload.messages : [];
   const body: Record<string, unknown> = {
     model,
-    messages: payload.messages.map(convertMessage),
+    messages: rawMessages.map(convertMessage),
+    stream,
   };
 
   if (payload.system) {

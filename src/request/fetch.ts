@@ -40,10 +40,9 @@ export function buildHeaders(
     Accept: request.stream ? "text/event-stream" : "application/json",
     "Content-Type": "application/json",
     "OpenAI-Beta": "responses=experimental",
-    "x-openai-session-id": sessionId,
+    originator: "codex_cli_rs",
+    session_id: sessionId,
     Authorization: `Bearer ${token.accessToken}`,
-    "x-openai-origin": "claude-code-codex",
-    "x-openai-client-type": "claude-code-extension",
   };
 
   for (const [key, value] of Object.entries(request.headers ?? {})) {
@@ -51,7 +50,7 @@ export function buildHeaders(
   }
 
   if (token.accountId) {
-    headers["x-openai-account-id"] = token.accountId;
+    headers["chatgpt-account-id"] = token.accountId;
   }
 
   return headers;

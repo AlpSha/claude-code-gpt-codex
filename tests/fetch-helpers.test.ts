@@ -30,8 +30,9 @@ describe("buildHeaders", () => {
     const headers = buildHeaders(request, { accessToken: "token-123", accountId: "acct_1" }, "session-1");
 
     expect(headers.Authorization).toBe("Bearer token-123");
-    expect(headers["x-openai-account-id"]).toBe("acct_1");
-    expect(headers["x-openai-session-id"]).toBe("session-1");
+    expect(headers["chatgpt-account-id"]).toBe("acct_1");
+    expect(headers.session_id).toBe("session-1");
+    expect(headers.originator).toBe("codex_cli_rs");
     expect(headers["User-Agent"]).toBe("claude-code");
     expect(headers.Accept).toBe("application/json");
   });

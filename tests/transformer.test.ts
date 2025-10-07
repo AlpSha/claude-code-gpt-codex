@@ -21,6 +21,8 @@ describe("transformRequest", () => {
 
     expect(result.body.model).toBe("gpt-5-codex");
     expect("rs_tmp" in result.body).toBe(false);
+    expect(result.body.store).toBe(false);
+    expect(Array.isArray(result.body.input)).toBe(true);
   });
 
   it("injects bridge prompt when tools are present", async () => {
@@ -32,9 +34,9 @@ describe("transformRequest", () => {
 
     const result = transformRequest(config, body);
 
-    const first = (result.body.messages as Array<{ role: string; content: string }>)[0];
+    const first = (result.body.input as Array<{ role: string; content: Array<{ type: string; text: string }> }>)[0];
     expect(first.role).toBe("developer");
-    expect(first.content).toContain("Codex Running in Claude Code");
+    expect(first.content[0]?.text).toContain("Codex Running in Claude Code");
   });
 
   it("skips prompt injection when disabled", async () => {

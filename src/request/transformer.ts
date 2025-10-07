@@ -64,6 +64,10 @@ function mergeReasoningDefaults(config: CodexConfig, requestBody: Record<string,
     verbosity: text.verbosity ?? config.defaults.textVerbosity,
     ...text,
   };
+
+  if (!Array.isArray(requestBody.include)) {
+    requestBody.include = config.defaults.include;
+  }
 }
 
 function hasTools(requestBody: Record<string, unknown>): boolean {
@@ -135,8 +139,66 @@ export function transformRequest(
     injected = result.applied;
   }
 
+  const messages = Array.isArray(body.messages) ? (body.messages as Array<Record<string, unknown>>) : [];
+  body.input = convertMessagesToInput(messages);
+  delete body.messages;
+
+  body.store = false;
+  if (body.stream === undefined) {
+    body.stream = false;
+  }
+  if (body.max_output_tokens === undefined) {
+    body.max_output_tokens = null;
+  }
+  if (body.max_completion_tokens === undefined) {
+    body.max_completion_tokens = null;
+  }
+
   return {
     body,
     injectedBridgePrompt: injected,
   };
+}
+
+function convertMessagesToInput(messages: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+  const input: Array<Record<string, unknown>> = [];
+  for (const message of messages) {
+    if (!message || typeof message !== "object") {
+      continue;
+    }
+    const role = typeof message.role === "string" ? message.role : "user";
+    const content = normalizeMessageContent(message.content);
+    input.push({
+      type: "message",
+      role,
+      content,
+    });
+  }
+  return input;
+}
+
+function normalizeMessageContent(content: unknown): Array<Record<string, unknown>> {
+  if (Array.isArray(content)) {
+    const blocks: Array<Record<string, unknown>> = [];
+    for (const block of content) {
+      if (!block || typeof block !== "object") {
+        continue;
+      }
+      const typed = block as { type?: unknown; text?: unknown };
+      if (typed.type === "input_text" && typeof typed.text === "string") {
+        blocks.push({ type: "input_text", text: typed.text });
+      } else if (typed.type === "text" && typeof typed.text === "string") {
+        blocks.push({ type: "input_text", text: typed.text });
+      }
+    }
+    if (blocks.length > 0) {
+      return blocks;
+    }
+  }
+
+  if (typeof content === "string") {
+    return [{ type: "input_text", text: content }];
+  }
+
+  return [{ type: "input_text", text: "" }];
 }
