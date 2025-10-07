@@ -303,14 +303,32 @@ function getDeltaText(payload: Record<string, unknown>): string | undefined {
   return undefined;
 }
 
+const MODEL_ALIASES: Record<string, string> = {
+  "gpt-5": "gpt-5-codex",
+};
+
 function normalizeModel(model: string | undefined, config: ProxyConfig): string {
+  const allowedMap = new Map(
+    (config.allowedModels ?? []).map((allowed) => [allowed.toLowerCase(), allowed] as const),
+  );
+
   if (model) {
     const normalized = model.trim().toLowerCase();
-    const match = config.allowedModels.find((allowed) => allowed.toLowerCase() === normalized);
-    if (match) {
-      return match;
+    const aliasTarget = MODEL_ALIASES[normalized];
+    if (aliasTarget) {
+      const aliasMatch = allowedMap.get(aliasTarget.toLowerCase());
+      if (aliasMatch) {
+        return aliasMatch;
+      }
+      return aliasTarget;
+    }
+
+    const directMatch = allowedMap.get(normalized);
+    if (directMatch) {
+      return directMatch;
     }
   }
+
   return config.allowedModels[0] ?? "gpt-5-codex";
 }
 

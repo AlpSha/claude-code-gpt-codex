@@ -162,7 +162,6 @@ describe("pipeCodexStreamToAnthropic", () => {
     expect(joined).toContain("message_start");
     expect(joined).toContain("content_block_delta");
     expect(joined).toContain("message_end");
-    expect(joined.trim().endsWith("[DONE]\n\n")).toBe(true);
+    expect(joined.endsWith("data: [DONE]\n\n")).toBe(true);
   });
 });
-

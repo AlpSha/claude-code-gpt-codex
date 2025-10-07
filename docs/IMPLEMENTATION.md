@@ -1,192 +1,80 @@
-# Claude Code GPT-5 Codex OAuth Integration
+# Anthropic-Compatible Proxy Implementation
 
-This document describes how to build a Claude Code extension that authenticates against OpenAI's ChatGPT backend (Codex) and exposes `gpt-5-codex` functionality inside Claude Code. The design intentionally avoids OpenCode support and never injects Codex-specific system instructions—Claude Code's default instructions remain in control.
-
-## Goals
-
-- Authenticate with ChatGPT Plus/Pro via OAuth (PKCE) and reuse subscription credits.
-- Preserve the Codex CLI request pipeline while adapting it to Claude Code's extension API.
-- Rely on Claude Code's built-in system instructions; only add a Claude-flavoured bridge prompt when tool hints are required.
-- Persist tokens and cache files in Claude Code-friendly locations.
-- Offer clear environment-variable configuration for base URLs, token cache paths, and debugging.
+This document explains how the repository delivers an Anthropic-compatible proxy that reuses the Codex (ChatGPT) client stack. The proxy allows Claude Code to forward Anthropic `/v1/messages` and `/v1/complete` calls to OpenAI's Codex pipeline while preserving the existing OAuth, request transformation, and streaming helpers.
 
 ## High-Level Architecture
-
 ```
-claude-extension/
-├── src/
-│   ├── index.ts                 # Claude Code extension entry point
-│   ├── auth/
-│   │   ├── oauth.ts             # PKCE flow, token exchange, refresh
-│   │   ├── server.ts            # Local callback server (port 1455)
-│   │   └── browser.ts           # Attempts to open the auth URL
-│   ├── request/
-│   │   ├── fetch.ts             # 7-step fetch pipeline (transform + fetch + handle)
-│   │   ├── transformer.ts       # Request body normalization and bridge prompt injection
-│   │   └── response.ts          # SSE → JSON helpers
-│   ├── prompts/
-│   │   └── claude-bridge.ts     # Claude Code bridge prompt for tool awareness
-│   ├── config/
-│   │   └── index.ts             # Merges env vars + optional `~/.claude-code` config
-│   └── types.ts                 # Shared TypeScript interfaces
-├── docs/
-│   ├── IMPLEMENTATION.md        # (this file)
-│   └── PROMPTS.md               # Bridge prompt strategy
-├── package.json
-├── tsconfig.json
-└── vitest.config.ts
+Claude Code ──(Anthropic JSON/SSE)──> Fastify Proxy ──(Claude request)──> CodexFetchPipeline ──> OpenAI Codex
 ```
 
-## Seven-Step Fetch Flow (Claude Edition)
+### Core Modules
+- `src/index.ts` – CLI entry point that loads configuration, prepares dependencies, and starts the Fastify server.
+- `src/server/app.ts` – builds the Fastify instance, wires shared error handling, and registers proxy routes.
+- `src/server/routes/messages.ts` – implements `POST /v1/messages`, including streaming support via `pipeCodexStreamToAnthropic`.
+- `src/server/routes/complete.ts` – implements `POST /v1/complete` by wrapping prompts into Anthropic message payloads.
+- `src/server/auth.ts` – validates `Authorization: Bearer <ANTHROPIC_AUTH_TOKEN>` or `x-api-key` headers before requests hit the pipeline.
+- `src/proxy/anthropic-adapter.ts` – pure adapters that translate Anthropic request/response shapes into Codex-friendly equivalents and vice versa.
+- `src/request/` – unchanged Codex fetch pipeline (OAuth refresh, header injection, SSE helpers, logging).
 
-1. **Token Management** – Read cached OAuth tokens, refresh when `expires < Date.now()` using the refresh token, then persist the new credentials.
-2. **URL Rewriting** – Rewrite Claude Code's `https://chatgpt.com/backend-api/responses` requests to the Codex endpoint `https://chatgpt.com/backend-api/codex/responses`.
-3. **Request Transformation** – Normalize model IDs (`gpt-5-codex`/`gpt-5`), merge reasoning/text config, optionally prepend the Claude bridge prompt when developer tools are present, and remove stateless history artifacts (`rs_*`). Do **not** override Claude Code's default instructions field.
-4. **Header Injection** – Attach the OAuth `Authorization` bearer token, ChatGPT account ID, `OpenAI-Beta: responses=experimental`, originator, and random session ID.
-5. **Execution** – Send the request with `fetch` (Node 20+), honour streaming via SSE when requested.
-6. **Logging** – Optional debug logging when `ENABLE_PLUGIN_REQUEST_LOGGING=1`; log before/after transformation and response metadata.
-7. **Response Handling** – Convert SSE payloads to JSON for non-tool calls; pass through raw streams otherwise.
+## Request Lifecycle (`/v1/messages`)
+1. **Authentication** – `createAuthPreHandler` checks the provided bearer token against `config.authToken`. Missing or mismatched credentials short-circuit with Anthropic-style error payloads.
+2. **Validation** – handlers ensure the request body contains the minimal Anthropic schema (`messages` array for `/v1/messages`, `prompt` string for `/v1/complete`).
+3. **Streaming Detection** – the proxy sets `stream = body.stream ?? Accept.includes("text/event-stream")` to align with Anthropic clients.
+4. **Request Adaptation** – `buildClaudeRequest` converts Anthropic payloads into Claude/Codex requests:
+   - Normalises models (`gpt-5` → `gpt-5-codex`) while respecting `config.allowedModels`.
+   - Flattens message content, maps `system` → `instructions`, carries metadata, tool definitions, and `max_tokens` → `max_output_tokens`.
+   - Forwards Anthropic headers (`anthropic-version`, `anthropic-beta`, etc.) alongside pipeline-injected Codex headers.
+5. **Pipeline Execution** – `CodexFetchPipeline.handle` performs OAuth refresh, bridge prompt injection (if enabled), header injection, and dispatches the Codex request.
+6. **Response Adaptation** –
+   - JSON responses: `codexResponseToAnthropic` emits Anthropic `message` payloads (`message_start`, `content` blocks, usage, stop reason).
+   - Streaming responses: `pipeCodexStreamToAnthropic` rewrites Codex SSE events into Anthropic-compatible event names and terminates with `data: [DONE]\n\n`.
+7. **Error Mapping** – all thrown errors are converted into Anthropic error payloads via `toAnthropicError`, preserving status codes when available.
 
-## Implementation Steps
+## `/v1/complete`
+The `/v1/complete` route mirrors `/v1/messages`. `buildClaudeRequestFromPrompt` wraps the prompt into a single user message before invoking the shared pipeline. Non-streaming responses are converted back to Anthropic completion objects containing both the generated text (`completion`) and the original prompt.
 
-### 1. Bootstrap the Repository
-
-- Initialise a Node 20+ TypeScript project (`bun init`, `tsconfig.json` targeting ES2022 + module=ES2022).
-- Install dependencies:
-  - Runtime: `@openauthjs/openauth`
-  - Dev: Claude Code extension SDK (`@anthropic-ai/claude-code-sdk` or equivalent), `typescript`, `vitest`.
-
-### 2. Define Configuration
-
-Create `src/config/index.ts` with:
-
-- Default values tuned for Codex CLI parity: `reasoningEffort="medium"`, `reasoningSummary="auto"`, `textVerbosity="medium"`, `include=["reasoning.encrypted_content"]`.
-- Environment variables (all optional, with sane defaults):
-  - `CLAUDE_CODE_CODEX_BASE_URL` (default `https://chatgpt.com/backend-api`).
-  - `CLAUDE_CODE_CODEX_CACHE_DIR` (default `~/.claude-code/cache`).
-  - `CLAUDE_CODE_CODEX_CONFIG` optional path for JSON overrides.
-  - `CLAUDE_CODE_CODEX_DEBUG` toggles verbose logging.
-- A loader that merges env vars ⟶ config file ⟶ defaults.
-
-### 3. Implement OAuth Flow (`src/auth/`)
-
-Repurpose the Codex CLI OAuth flow:
-
-- `oauth.ts`: PKCE generation (`@openauthjs/openauth/pkce`), `CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"`, authorise URL `https://auth.openai.com/oauth/authorize`, token URL `https://auth.openai.com/oauth/token`, scope `openid profile email offline_access`.
-- `server.ts`: Local HTTP server on port `1455` that captures `GET /auth/callback?code=...&state=...` and resolves a promise with the code. Ensure clean shutdown.
-- `browser.ts`: Attempt to open the authorisation URL using platform-specific commands (`open`, `start`, `xdg-open`).
-- Token persistence: read/write JSON at `~/.claude-code/auth/codex.json` (configurable) containing `{ access, refresh, expires }`.
-
-### 4. Claude Code Entry Point (`src/index.ts`)
-
-Implement the extension contract expected by Claude Code (pseudo-interface `ClaudeExtension`):
-
-```ts
-export const CodexExtension: ClaudeExtension = ({ secrets, http, logger }) => ({
-  auth: {
-    label: "ChatGPT Plus/Pro OAuth",
-    async loader() { /* Step 1-7 orchestrator */ },
-    async authorize() { /* Launch browser + wait for callback */ },
-  },
-});
-```
-
-Inside the loader:
-
-1. Retrieve cached auth (`readTokens()`); if missing, throw to prompt the user to run the OAuth method.
-2. Decode the JWT (`decodeJWT`) to extract `chatgpt_account_id` from the `https://api.openai.com/auth` claim.
-3. Load merged configuration (global + per-model options).
-4. Return Claude Code provider settings: dummy API key (`chatgpt-oauth`), base URL (default or overridden), and the custom `fetch` implementation from `src/request/fetch.ts`. No additional instructions are injected; Claude Code supplies them.
-
-### 5. Fetch Pipeline (`src/request/fetch.ts`)
-
-Expose a function `createCodexFetch({ getAuth, setAuth })` that returns an async `(input, init) => Response`. Steps:
-
-- Guard against stale tokens (`shouldRefreshToken`); if `expires <= now`, call `refreshAccessToken` and persist via `setAuth`.
-- Extract the request URL, rewrite `/responses` → `/codex/responses`.
-- If `init.body` exists, parse JSON, call `transformRequestBody()` to normalize models, merge config, prune history, and optionally inject the Claude bridge prompt, then stringify the result.
-- Build headers via `createCodexHeaders()`.
-- Execute `fetch` and run through `handleErrorResponse`/`handleSuccessResponse` utilities.
-
-### 6. Request Transformation (`src/request/transformer.ts`)
-
-Key responsibilities:
-
-- `normalizeModel(model: string | undefined)` → `gpt-5-codex` when `includes("codex")`, else `gpt-5`.
-- Merge config with model-specific overrides (Claude Code exposes per-model options similar to the OpenCode config schema).
-- Enforce `store=false`, `stream=true`, and preserve whatever `instructions` Claude supplied (never overwrite).
-- Filter input history to remove response IDs (`rs_*`).
-- When tools are present, prepend the Claude bridge prompt (detailed in `docs/PROMPTS.md`).
-- Compute reasoning config (`getReasoningConfig`) with default `medium` (codex) and degrade `minimal`→`low` for Codex requests.
-- Normalize text verbosity to `medium` unless overridden.
-
-### 7. Prompt Management (`src/prompts/claude-bridge.ts`)
-
-- Export a bridge prompt tailored to Claude Code tool names (see `docs/PROMPTS.md`).
-- Provide helper functions to cache the bridge text if you want to avoid repeated file reads, but no Codex instruction downloads are needed.
-
-### 8. Token & Cache Storage
-
-- Tokens: `~/.claude-code/auth/codex.json`
-- Cache: `~/.claude-code/cache/`
-  - `claude-tooling-bridge.txt` (optional cached prompt)
-
-Ensure directories are created lazily with `fs.mkdir({ recursive: true })`.
-
-### 9. Logging & Debugging
-
-- Provide a `logger` wrapper that no-ops unless `CLAUDE_CODE_CODEX_DEBUG=1`.
-- Include `logRequest(stage, payload)` to capture request/response metadata. Mask tokens before logging.
-
-### 10. Testing Strategy
-
-- Mirror the original plugin's 120+ tests using Vitest.
-- Key suites:
-  - `auth.test.ts` – PKCE generation, token parsing, state validation.
-  - `fetch-helpers.test.ts` – URL rewriting, header creation, refresh flow.
-  - `transformer.test.ts` – Model normalization, bridge prompt injection, reasoning config.
-  - `config.test.ts` – Env precedence, config file parsing, defaults.
-- Mock network calls (`fetch-mock`) for token endpoints. No GitHub mocks required since Codex instructions are unused.
-
-### 11. Build & Distribution
-
-- `bun run build` → compile TypeScript to `dist/` via `tsc` and copy static assets (e.g., `auth-success.html`).
-- Publish as `claude-code-gpt5-codex-auth` (or private bundle) with appropriate metadata.
-- Document minimal installation in the repo README: place the compiled extension in Claude Code's plugin directory, then run the OAuth flow once.
-
-## Environment Variables Summary
+## Configuration & Environment Variables
+Configuration is loaded through `loadConfig`, merging defaults, optional JSON overrides, and environment variables.
 
 | Variable | Purpose | Default |
-|----------|---------|---------|
-| `CLAUDE_CODE_CODEX_BASE_URL` | Override ChatGPT backend base URL | `https://chatgpt.com/backend-api` |
-| `CLAUDE_CODE_CODEX_ACCOUNT_ID` | Optional manual override for account ID (useful for testing) | extracted from JWT |
-| `CLAUDE_CODE_CODEX_CACHE_DIR` | Cache directory | `~/.claude-code/cache` |
-| `CLAUDE_CODE_CODEX_AUTH_PATH` | Token storage path | `~/.claude-code/auth/codex.json` |
-| `CLAUDE_CODE_CODEX_CONFIG` | Path to JSON config overrides | *(none)* |
-| `CLAUDE_CODE_CODEX_DEBUG` | Enable verbose logging (1/0) | 0 |
-| `CODEX_MODE` | Force bridge prompt behaviour (1 enable, 0 disable) | 0 |
+| --- | --- | --- |
+| `PROXY_HOST` | Bind address for the Fastify server | `127.0.0.1` |
+| `PROXY_PORT` | Listening port for the proxy | `4000` |
+| `ANTHROPIC_AUTH_TOKEN` | Shared secret expected in the `Authorization` header | *(required)* |
+| `ANTHROPIC_ALLOWED_MODELS` | Comma-separated list of models exposed to Claude Code | `gpt-5-codex,gpt-5` |
+| `CODEX_MODE` | Bridge prompt behaviour (`auto`, `force`, `disabled`, `1`, `0`) | `auto` |
+| `CLAUDE_CODE_CODEX_BASE_URL` | Downstream Codex base URL | `https://chatgpt.com/backend-api` |
+| `CLAUDE_CODE_CODEX_CACHE_DIR` | Cache directory (`claude-tooling-bridge.txt`, etc.) | `~/.claude-code/cache` |
+| `CLAUDE_CODE_CODEX_AUTH_PATH` | Token store location | `~/.claude-code/auth/codex.json` |
+| `CLAUDE_CODE_CODEX_DEBUG` | Verbose logging toggle (`1`/`0`) | `0` |
+| `CLAUDE_CODE_CODEX_CONFIG` | Path to JSON overrides | *(unset)* |
 
-## Example `.env`
+> Claude Code itself should be configured with `ANTHROPIC_BASE_URL=http://<host>:<port>`, `ANTHROPIC_AUTH_TOKEN=<shared secret>`, and `ANTHROPIC_MODEL=gpt-5-codex` (or another value found in `ANTHROPIC_ALLOWED_MODELS`).
 
+## Running the Proxy Locally
 ```
-CLAUDE_CODE_CODEX_BASE_URL=https://chatgpt.com/backend-api
-CLAUDE_CODE_CODEX_AUTH_PATH=/Users/alice/.claude-code/auth/codex.json
-CLAUDE_CODE_CODEX_CACHE_DIR=/Users/alice/.claude-code/cache
-CLAUDE_CODE_CODEX_DEBUG=1
+bun install
+bun run build
+PROXY_PORT=4000 ANTHROPIC_AUTH_TOKEN=secret bun node dist/index.js
 ```
+The CLI entry validates `ANTHROPIC_AUTH_TOKEN`, ensures the bridge prompt cache exists, initialises the OAuth manager, and starts the Fastify server. Logs are emitted through `createLogger` when debugging is enabled.
 
-## Developer Workflow Checklist
+## Smoke Test with Claude Code
+1. Start the proxy (see above).
+2. In Claude Code, set environment variables:
+   - `ANTHROPIC_BASE_URL=http://localhost:4000`
+   - `ANTHROPIC_AUTH_TOKEN=secret`
+   - `ANTHROPIC_MODEL=gpt-5-codex`
+3. Trigger a Claude Code session and send a simple prompt ("Say hello").
+4. Observe proxy logs for request/response traces (enable `CLAUDE_CODE_CODEX_DEBUG=1` if deeper inspection is needed).
+5. Execute a tool-enabled prompt to validate bridge prompt injection and tool routing.
 
-1. **Install dependencies**: `bun install`.
-2. **Run tests**: `bun run test`.
-3. **Build**: `bun run build` (ensures OAuth success HTML copied to `dist/`).
-4. **Link into Claude Code**: symlink or copy the `dist/` bundle as required by Claude Code.
-5. **Authenticate**: trigger the OAuth method from within Claude Code; browser opens at `https://auth.openai.com/oauth/authorize`. Complete login.
-6. **Verify**: open Claude Code terminal, issue a test command; confirm responses originate from `gpt-5-codex`.
+## Prompt Injection Toggle
+`transformRequest` honours `CODEX_MODE` or explicit overrides in the JSON config. When `auto`, the bridge prompt is injected only when tools are present. Setting `CODEX_MODE=force` always injects, while `CODEX_MODE=disabled` prevents injection entirely. The cached prompt content lives in `config.bridgePromptCachePath`.
 
-## Appendix: Migration Notes
+## Development Workflow
+- `bun run test` – executes the Vitest suites, including adapter, server, auth, and transformer tests.
+- `bun run typecheck` – validates TypeScript types without emitting output.
+- `bun run build` – produces the runnable `dist/` bundle used by the CLI entry point.
 
-- The Claude bridge prompt replaces any OpenCode-specific guidance; see `docs/PROMPTS.md`.
-- All references to `@opencode-ai/*` packages are removed; replace with Claude Code SDK types.
-- Default reasoning/text values mimic the Codex CLI rather than Anthropic defaults to ensure parity with ChatGPT behaviour.
-- If Claude Code already uses env vars like `ANTHROPIC_BASE_URL`, document how to set the Codex-specific ones alongside them; two providers can coexist.
+See `docs/PROMPTS.md` for detailed bridge prompt context and caching behaviour.

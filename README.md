@@ -1,69 +1,71 @@
-# Claude Code GPT-5 Codex Extension
+# Claude Code GPT-5 Codex Proxy
 
-This repository contains a Claude Code extension that authenticates against OpenAI's ChatGPT backend and proxies `gpt-5-codex` responses into Claude Code. It preserves Claude Code's native instructions and tooling while translating Codex-specific expectations (OAuth, request formatting, bridge prompt, streaming) into Claude-friendly equivalents.
+This repository delivers an Anthropic-compatible proxy that fronts the existing OpenAI Codex (ChatGPT) pipeline. Claude Code can direct its Anthropic traffic to the proxy by setting `ANTHROPIC_BASE_URL`, authenticate requests with `ANTHROPIC_AUTH_TOKEN`, and continue to use Anthropic request/response schemas while Codex runs behind the scenes.
 
 ## Features
-- OAuth PKCE sign-in against ChatGPT Plus/Pro accounts with cached refresh tokens.
-- Request transformer that normalises models, merges Codex CLI reasoning defaults, and injects a Claude-aware bridge prompt for tool runs.
-- Streaming-safe fetch pipeline with automatic URL rewriting, header enrichment, and SSE helpers.
-- Configurable via environment variables or optional JSON overrides (`~/.claude-code` friendly paths).
-- Vitest suites covering configuration, transformer logic, OAuth helpers, token storage, and fetch utilities.
+- Fastify server exposing `/v1/messages` and `/v1/complete`, guarded by a shared bearer token.
+- Anthropic ↔ Codex adapters that normalise models (`gpt-5` → `gpt-5-codex`), flatten message payloads, forward metadata, and translate SSE streams.
+- OAuth PKCE flow with cached refresh tokens stored under `~/.claude-code/auth/codex.json` (configurable).
+- Bridge prompt injection retained from the Codex pipeline with an env toggle.
+- Comprehensive Vitest suites covering configuration, adapters, auth, transformer logic, and server routes.
 
 ## Getting Started
 
 ### Prerequisites
-- Node.js 20 or later
+- Node.js 20+
 - Bun 1.0+
 
-### Installation
+### Install & Build
 ```bash
 bun install
-```
-
-### Building the Extension
-Compile TypeScript sources into `dist/`:
-```bash
 bun run build
 ```
 
-### Registering with Claude Code
-1. Copy or symlink the `dist/` directory into Claude Code's extension plugins folder (varies by platform). Consult Claude Code's documentation for the exact path.
-2. Start Claude Code; the extension will load and register the `gpt-5-codex` transport automatically.
+### Run the Proxy
+```bash
+PROXY_PORT=4000 ANTHROPIC_AUTH_TOKEN=secret bun node dist/index.js
+```
+The proxy binds to `PROXY_HOST`/`PROXY_PORT` (defaults `127.0.0.1:4000`) and logs startup metadata. Startup fails if `ANTHROPIC_AUTH_TOKEN` is missing.
 
-### Authenticating with ChatGPT
-The first Codex request will trigger OAuth if no valid token cache is available.
-1. Allow the extension to open a browser window pointing at `https://auth.openai.com/oauth/authorize`.
-2. Complete login with a ChatGPT Plus/Pro account.
-3. After the callback hits `http://localhost:1455/auth/callback`, the extension stores tokens at `~/.claude-code/auth/codex.json` (customisable).
-4. Subsequent requests reuse and refresh tokens transparently.
+### Point Claude Code at the Proxy
+Set the following in Claude Code's environment:
+- `ANTHROPIC_BASE_URL=http://localhost:4000`
+- `ANTHROPIC_AUTH_TOKEN=secret`
+- `ANTHROPIC_MODEL=gpt-5-codex`
+
+Send a simple prompt ("Say hello") to validate the round trip. Enable `CLAUDE_CODE_CODEX_DEBUG=1` for verbose proxy logs.
 
 ## Configuration
-Environment variables override defaults at runtime. Optionally, set `CLAUDE_CODE_CODEX_CONFIG` to point to a JSON file containing the same keys.
+`loadConfig` merges defaults, JSON overrides, and environment variables.
 
 | Variable | Description | Default |
 | --- | --- | --- |
-| `CLAUDE_CODE_CODEX_BASE_URL` | ChatGPT backend base URL | `https://chatgpt.com/backend-api` |
-| `CLAUDE_CODE_CODEX_CACHE_DIR` | Directory for cache artifacts (bridge prompt, etc.) | `~/.claude-code/cache` |
-| `CLAUDE_CODE_CODEX_AUTH_PATH` | Location for OAuth token JSON | `~/.claude-code/auth/codex.json` |
-| `CLAUDE_CODE_CODEX_CONFIG` | Optional JSON config path | *(unset)* |
+| `PROXY_HOST` | Bind address for the proxy | `127.0.0.1` |
+| `PROXY_PORT` | Listening port | `4000` |
+| `ANTHROPIC_AUTH_TOKEN` | Shared secret expected in the `Authorization` header | *(required)* |
+| `ANTHROPIC_ALLOWED_MODELS` | Comma-separated list of surfaced models | `gpt-5-codex,gpt-5` |
+| `CLAUDE_CODE_CODEX_BASE_URL` | Downstream Codex base URL | `https://chatgpt.com/backend-api` |
+| `CLAUDE_CODE_CODEX_CACHE_DIR` | Cache directory (bridge prompt, etc.) | `~/.claude-code/cache` |
+| `CLAUDE_CODE_CODEX_AUTH_PATH` | OAuth token JSON path | `~/.claude-code/auth/codex.json` |
+| `CLAUDE_CODE_CODEX_CONFIG` | Path to JSON overrides | *(unset)* |
 | `CLAUDE_CODE_CODEX_DEBUG` | Enable verbose logging (`1`/`0`) | `0` |
-| `CLAUDE_CODE_CODEX_ACCOUNT_ID` | Force an account ID header (testing) | decoded from JWT |
-| `CODEX_MODE` | Prompt injection mode (`auto`, `force`, `disabled`, `1`, `0`) | `auto` |
+| `CODEX_MODE` | Bridge prompt behaviour (`auto`, `force`, `disabled`, `1`, `0`) | `auto` |
 
-Reasoning defaults follow Codex CLI parity (`reasoningEffort=medium`, `logic include=reasoning.encrypted_content`, `text.verbosity=medium`). Override them inside the config JSON's `defaults` object if needed.
+Reasoning defaults follow Codex CLI parity (`reasoningEffort=medium`, `include=["reasoning.encrypted_content"]`, `text.verbosity=medium`). Override them inside the config JSON's `defaults` object if desired.
 
 ## Repository Layout
 ```
 src/
-  auth/          # OAuth, token storage, browser helper
-  config/        # Env/config loader merging defaults and overrides
-  prompts/       # Claude bridge prompt and cache helpers
-  request/       # Fetch pipeline, transformers, SSE utilities
-  utils/         # Filesystem helpers, logging infrastructure
-  types.ts       # Shared interfaces expected by Claude Code SDK
-specs/           # Design documents provided for implementation
-tests/           # Vitest coverage for core behaviours
-docs/            # Copied implementation + prompt specs
+  auth/          # OAuth flow, token persistence, browser helper
+  config/        # Config loader incl. proxy-specific env overrides
+  prompts/       # Claude bridge prompt and caching helpers
+  proxy/         # Anthropic ↔ Codex adapters
+  request/       # Fetch pipeline, transformers, SSE helpers
+  server/        # Fastify proxy (auth, routes, errors)
+  types.ts       # Shared interfaces
+specs/           # Design documents, including ANTHROPIC_PROXY_SPEC.md
+tests/           # Vitest coverage for pipeline + proxy
+docs/            # Implementation notes and prompt references
 ```
 
 ## Development Workflow
@@ -75,13 +77,13 @@ bun run build      # emit dist/ bundle
 ```
 
 ### Debug Logging
-Set `CLAUDE_CODE_CODEX_DEBUG=1` to surface pre/post transformation details, masked tokens, and response metadata in the console. Logs follow the `codex:<level>` prefix convention.
+Set `CLAUDE_CODE_CODEX_DEBUG=1` to surface transformation details, masked tokens, and streaming metadata via `createLogger`.
 
 ## Troubleshooting
-- **OAuth window does not open**: manually open the URL from logs in a browser; the local server still captures the callback.
-- **State mismatch/timeout**: rerun the flow; cached state is regenerated per attempt. Ensure no other process listens on port 1455.
-- **`401 Unauthorized` after refresh**: delete the token store (`rm ~/.claude-code/auth/codex.json`) to force an interactive login.
-- **Claude bridge prompt missing**: confirm `CODEX_MODE` isn’t set to `0`/`disabled` and that the request includes tool definitions.
+- **OAuth window does not open**: manually launch the printed URL; the local callback server still captures the auth code on port 1455.
+- **State mismatch/timeout**: rerun the login; state is regenerated per attempt. Ensure no other service listens on 1455.
+- **`401 Unauthorized` from the proxy**: confirm Claude Code sends the same `ANTHROPIC_AUTH_TOKEN` the proxy is configured with.
+- **Bridge prompt missing**: ensure `CODEX_MODE` is not `disabled`/`0` and that tool definitions are included in the request.
 
 ## License
 MIT (update as required for your distribution).
