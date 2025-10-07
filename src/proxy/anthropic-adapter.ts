@@ -24,9 +24,8 @@ function extractSystemInstructions(system: AnthropicSystemValue | undefined): st
 
   const append = (value: unknown) => {
     if (typeof value === "string") {
-      const normalised = value.trim();
-      if (normalised.length > 0) {
-        segments.push(normalised);
+      if (value.trim().length > 0) {
+        segments.push(value);
       }
       return;
     }
@@ -54,7 +53,7 @@ function extractSystemInstructions(system: AnthropicSystemValue | undefined): st
     return undefined;
   }
 
-  return segments.join("\n\n");
+  return segments.join("\n");
 }
 
 export function buildClaudeRequest(payload: MessagesPayload, options: BuildClaudeRequestOptions): ClaudeModelRequest {

@@ -100,7 +100,7 @@ describe("buildClaudeRequest", () => {
       model: "gpt-5-codex",
       system: [
         { type: "text", text: "You are Claude Code." },
-        { type: "text", text: "\nFollow project instructions exactly.\n" },
+        { type: "text", text: "\nFollow project instructions exactly.\n", cache_control: { type: "ephemeral" } },
         { type: "text", text: "" },
       ],
       messages: [
@@ -118,7 +118,7 @@ describe("buildClaudeRequest", () => {
     });
 
     const body = request.body as Record<string, unknown>;
-    expect(body.instructions).toBe("You are Claude Code.\n\nFollow project instructions exactly.");
+    expect(body.instructions).toBe("You are Claude Code.\n\nFollow project instructions exactly.\n");
   });
 });
 
