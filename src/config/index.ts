@@ -122,7 +122,7 @@ export async function loadConfig(env: NodeJS.ProcessEnv = process.env): Promise<
     accountId: env.CLAUDE_CODE_CODEX_ACCOUNT_ID || fileOverrides.accountId || DEFAULT_CONFIG.accountId,
     host: env.PROXY_HOST || fileOverrides.host || proxyOverrides.host || "127.0.0.1",
     port:
-      Number.isFinite(parsedEnvPort) && parsedEnvPort > 0
+      (parsedEnvPort !== undefined && Number.isFinite(parsedEnvPort) && parsedEnvPort > 0)
         ? parsedEnvPort
         : typeof parsedFilePort === "number" && Number.isFinite(parsedFilePort) && parsedFilePort > 0
           ? parsedFilePort

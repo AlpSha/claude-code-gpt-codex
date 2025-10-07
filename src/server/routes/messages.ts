@@ -35,7 +35,7 @@ export function registerMessagesRoute(server: FastifyInstance, deps: MessagesRou
 
         if (stream || response.stream) {
           await streamResponse(reply, response.stream, {
-            headers: response.headers,
+            headers: response.headers as Record<string, string>,
             status: response.status,
           });
           return;

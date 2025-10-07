@@ -29,7 +29,7 @@ function extractToken(request: FastifyRequest): string | undefined {
   const authHeader = request.headers["authorization"];
   if (typeof authHeader === "string") {
     const match = authHeader.match(/^Bearer\s+(.+)$/i);
-    if (match) {
+    if (match && match[1]) {
       return match[1].trim();
     }
   }

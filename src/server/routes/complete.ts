@@ -34,7 +34,7 @@ export function registerCompleteRoute(server: FastifyInstance, deps: CompleteRou
         const response = await deps.pipeline.handle(claudeRequest);
 
         if (stream || response.stream) {
-          await streamCompletion(reply, response.stream, response.status, response.headers);
+          await streamCompletion(reply, response.stream, response.status, response.headers as Record<string, string>);
           return;
         }
 
