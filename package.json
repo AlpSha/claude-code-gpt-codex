@@ -16,13 +16,17 @@
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit --project tsconfig.json"
+    "typecheck": "tsc --noEmit --project tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "bunx tsx src/index.ts"
   },
   "dependencies": {
-    "@openauthjs/openauth": "^0.4.3"
+    "@openauthjs/openauth": "^0.4.3",
+    "fastify": "^5.0.0"
   },
   "devDependencies": {
     "@types/node": "^24.7.0",
+    "tsx": "^4.15.4",
     "typescript": "^5.9.3",
     "vitest": "^1.6.1"
   }

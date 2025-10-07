@@ -43,6 +43,7 @@ export interface ClaudeModelRequest {
   headers?: Record<string, string>;
   body?: unknown;
   stream?: boolean;
+  bridgePromptOverride?: boolean;
 }
 
 export interface ClaudeModelResponse {

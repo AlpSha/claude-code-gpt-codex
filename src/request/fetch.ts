@@ -78,18 +78,38 @@ export class CodexFetchPipeline {
     const token = await this.auth.getToken();
     const targetUrl = rewriteUrl(this.config.baseUrl, request.url);
     const body = (request.body ?? {}) as Record<string, unknown>;
+    const headersInput = { ...(request.headers ?? {}) };
+
+    const bridgeOverrideHeaderKey = Object.keys(headersInput).find((key) =>
+      key.toLowerCase() === "x-codex-bridge-override",
+    );
+    let bridgeOverride: boolean | undefined = request.bridgePromptOverride;
+    if (bridgeOverrideHeaderKey) {
+      const rawValue = headersInput[bridgeOverrideHeaderKey];
+      delete headersInput[bridgeOverrideHeaderKey];
+      if (typeof rawValue === "string") {
+        const normalized = rawValue.trim().toLowerCase();
+        if (normalized === "1" || normalized === "true") {
+          bridgeOverride = true;
+        } else if (normalized === "0" || normalized === "false") {
+          bridgeOverride = false;
+        }
+      }
+    }
 
     this.logger.debug("Codex request (pre-transform)", {
       url: targetUrl,
-      headers: Object.keys(request.headers ?? {}),
+      headers: Object.keys(headersInput),
       hasTools: Array.isArray((body as { tools?: unknown[] }).tools),
     });
 
+    const shouldInject = shouldInjectPrompt(this.config, body);
+    const injectPrompt = bridgeOverride ?? shouldInject;
     const { body: transformed, injectedBridgePrompt } = transformRequest(this.config, body, {
-      injectPrompt: shouldInjectPrompt(this.config, body),
+      injectPrompt,
     });
 
-    const headers = buildHeaders(request, token, sessionId);
+    const headers = buildHeaders({ ...request, headers: headersInput }, token, sessionId);
     const maskedAuth = maskToken(token.accessToken);
 
     this.logger.debug("Codex request (post-transform)", {

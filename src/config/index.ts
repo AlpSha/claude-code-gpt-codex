@@ -1,6 +1,7 @@
 import path from "path";
 import os from "os";
 import { CodexConfig } from "../types";
+import type { ProxyConfig } from "../server/types";
 import { expandHomePath, readJsonFile } from "../utils/fs";
 
 interface RawConfigOverrides {
@@ -12,6 +13,16 @@ interface RawConfigOverrides {
   promptInjectionStrategy?: "auto" | "force" | "disabled";
   accountId?: string;
   defaults?: Partial<CodexConfig["defaults"]>;
+  allowedModels?: string[];
+  authToken?: string;
+  host?: string;
+  port?: number;
+  proxy?: {
+    host?: string;
+    port?: number;
+    authToken?: string;
+    allowedModels?: string[];
+  };
 }
 
 const DEFAULT_BASE_URL = "https://chatgpt.com/backend-api";
@@ -19,6 +30,9 @@ const DEFAULT_CACHE_DIR = path.join(os.homedir(), ".claude-code", "cache");
 const DEFAULT_AUTH_PATH = path.join(os.homedir(), ".claude-code", "auth", "codex.json");
 const DEFAULT_BRIDGE_CACHE = path.join(DEFAULT_CACHE_DIR, "claude-tooling-bridge.txt");
 const DEFAULT_PROMPT_STRATEGY: CodexConfig["promptInjectionStrategy"] = "auto";
+
+const DEFAULT_ALLOWED_MODELS = ["gpt-5-codex", "gpt-5"];
+const DEFAULT_PROXY_PORT = 4000;
 
 const DEFAULT_CONFIG: CodexConfig = {
   baseUrl: DEFAULT_BASE_URL,
@@ -65,7 +79,7 @@ function envPromptMode(value: string | undefined): CodexConfig["promptInjectionS
   return undefined;
 }
 
-export async function loadConfig(env: NodeJS.ProcessEnv = process.env): Promise<CodexConfig> {
+export async function loadConfig(env: NodeJS.ProcessEnv = process.env): Promise<ProxyConfig> {
   const configPath = env.CLAUDE_CODE_CODEX_CONFIG ? expandHomePath(env.CLAUDE_CODE_CODEX_CONFIG) : undefined;
   let fileOverrides: RawConfigOverrides = {};
   if (configPath) {
@@ -75,7 +89,18 @@ export async function loadConfig(env: NodeJS.ProcessEnv = process.env): Promise<
     }
   }
 
-  const merged: CodexConfig = {
+  const proxyOverrides = fileOverrides.proxy ?? {};
+
+  const allowedModelsEnv = env.ANTHROPIC_ALLOWED_MODELS?.split(",")
+    .map((model) => model.trim())
+    .filter((model) => model.length > 0);
+
+  const parsedEnvPort = env.PROXY_PORT ? Number.parseInt(env.PROXY_PORT, 10) : undefined;
+  const rawFilePort = fileOverrides.port ?? proxyOverrides.port;
+  const parsedFilePort =
+    typeof rawFilePort === "string" ? Number.parseInt(rawFilePort, 10) : rawFilePort;
+
+  const merged: ProxyConfig = {
     ...DEFAULT_CONFIG,
     ...fileOverrides,
     baseUrl: env.CLAUDE_CODE_CODEX_BASE_URL || fileOverrides.baseUrl || DEFAULT_CONFIG.baseUrl,
@@ -95,6 +120,22 @@ export async function loadConfig(env: NodeJS.ProcessEnv = process.env): Promise<
       ...fileOverrides.defaults,
     },
     accountId: env.CLAUDE_CODE_CODEX_ACCOUNT_ID || fileOverrides.accountId || DEFAULT_CONFIG.accountId,
+    host: env.PROXY_HOST || fileOverrides.host || proxyOverrides.host || "127.0.0.1",
+    port:
+      Number.isFinite(parsedEnvPort) && parsedEnvPort > 0
+        ? parsedEnvPort
+        : typeof parsedFilePort === "number" && Number.isFinite(parsedFilePort) && parsedFilePort > 0
+          ? parsedFilePort
+          : DEFAULT_PROXY_PORT,
+    authToken: env.ANTHROPIC_AUTH_TOKEN || fileOverrides.authToken || proxyOverrides.authToken || "",
+    allowedModels:
+      allowedModelsEnv?.length
+        ? allowedModelsEnv
+        : proxyOverrides.allowedModels?.length
+          ? proxyOverrides.allowedModels
+          : fileOverrides.allowedModels?.length
+            ? fileOverrides.allowedModels
+            : DEFAULT_ALLOWED_MODELS,
   };
 
   return merged;

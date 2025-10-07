@@ -31,6 +31,9 @@ describe("loadConfig", () => {
     expect(config.authPath).toContain("auth.json");
     expect(config.debug).toBe(true);
     expect(config.promptInjectionStrategy).toBe("force");
+    expect(config.port).toBe(4000);
+    expect(config.host).toBe("127.0.0.1");
+    expect(config.allowedModels.length).toBeGreaterThan(0);
   });
 
   it("merges config file overrides", async () => {
@@ -42,17 +45,27 @@ describe("loadConfig", () => {
         defaults: {
           reasoningEffort: "high",
         },
+        proxy: {
+          host: "0.0.0.0",
+          port: 5000,
+          allowedModels: ["custom-model"],
+        },
       }),
       "utf8",
     );
 
     const env = {
       CLAUDE_CODE_CODEX_CONFIG: configPath,
+      ANTHROPIC_AUTH_TOKEN: "secret",
     } as NodeJS.ProcessEnv;
 
     const config = await loadConfig(env);
 
     expect(config.baseUrl).toBe("https://override.test");
     expect(config.defaults.reasoningEffort).toBe("high");
+    expect(config.host).toBe("0.0.0.0");
+    expect(config.port).toBe(5000);
+    expect(config.allowedModels).toEqual(["custom-model"]);
+    expect(config.authToken).toBe("secret");
   });
 });
